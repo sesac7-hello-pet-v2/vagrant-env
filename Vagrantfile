@@ -1,13 +1,13 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-NUM_WORKER_NODES = 1
+NUM_WORKER_NODES = 2
 IP_NETWORK       = "10.10.10"
 BOX              = "ubuntu/focal64"
 
 # 공통 리소스 기본값 (필요하면 아래 define_node 호출 시 override 가능)
 VM_CPUS   = 1
-VM_MEMORY = 3072
+VM_MEMORY = 4096
 PROJECT   = File.basename(Dir.pwd)
 
 # 공통 정의 함수
@@ -35,6 +35,17 @@ def define_node(config, name:, ip:, role:, memory: VM_MEMORY, cpus: VM_CPUS)
     when :master
       node.vm.provision "shell", path: "scripts/master.sh"
       node.vm.provision "shell", path: "scripts/addons.sh", privileged: false
+      node.trigger.after :provision do |trigger|
+        trigger.run_remote = {
+          inline: <<-SHELL
+            set -e
+            echo "Copying kubeconfig to host machine..."
+            mkdir -p ~/.kube
+            cp ./configs/config ~/.kube/config
+            echo "Kubeconfig copied. You can now use 'kubectl' on your host machine."
+          SHELL
+        }
+      end
     when :worker
       node.vm.provision "shell", path: "scripts/worker.sh"
     end
